@@ -1,0 +1,92 @@
+{
+  "cv_path": "/absolute/path/to/your/CV.pdf",
+  "personal": {
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "phone_country_code": "+353",
+    "phone_number": "",
+    "address_line1": "",
+    "city": "",
+    "postcode": "",
+    "country": "Ireland",
+    "linkedin": "",
+    "github": ""
+  },
+  "work_permit": {
+    "country": "Ireland",
+    "document": "",
+    "notes": ""
+  },
+  "education": {
+    "postgraduate": {
+      "degree": "",
+      "university": "",
+      "university_short": "",
+      "country": "",
+      "start_day": 1,
+      "start_month": "",
+      "start_year": 0,
+      "end_day": 1,
+      "end_month": "",
+      "end_year": 0,
+      "expected_results": "",
+      "modules": ""
+    },
+    "undergraduate": {
+      "degree": "",
+      "degree_type": "",
+      "degree_subject": "",
+      "university": "",
+      "country": "",
+      "field_of_study": "",
+      "start_day": 1,
+      "start_month": "",
+      "start_year": 0,
+      "end_day": 1,
+      "end_month": "",
+      "end_year": 0,
+      "results": "",
+      "high_school_results": "",
+      "leaving_cert_ireland": false
+    }
+  },
+  "experience": [
+    {
+      "title": "",
+      "company": "",
+      "start": "",
+      "end": "",
+      "highlights": [
+        "",
+        "",
+        ""
+      ]
+    }
+  ],
+  "skills": {
+    "languages": [],
+    "frameworks": [],
+    "databases": [],
+    "devops": [],
+    "soft_skills": []
+  },
+  "extras": {
+    "activities": "",
+    "interests": ""
+  },
+  "availability": {
+    "grad_programme_start": "",
+    "internship_start": "Immediate Availability",
+    "postgrad_graduation": ""
+  },
+  "common_answers": {
+    "age_18_plus": true,
+    "second_undergraduate": false,
+    "leaving_cert_ireland": false,
+    "right_to_work_ireland": true,
+    "reasonable_adjustments": false,
+    "gender": "",
+    "pronouns": ""
+  }
+}

@@ -1,0 +1,17 @@
+# User's personal profile — never commit this
+profile.json
+
+# CV files
+*.pdf
+*.docx
+*.doc
+
+# Claude project memory (machine-specific)
+.claude/
+
+# Playwright snapshots
+.playwright-mcp/
+
+# OS
+.DS_Store
+Thumbs.db
