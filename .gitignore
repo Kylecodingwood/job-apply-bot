@@ -1,6 +1,15 @@
 # User's personal profile — never commit this
 profile.json
 
+# Job search results (machine-generated)
+jobs.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.python-version
+
 # CV files
 *.pdf
 *.docx
