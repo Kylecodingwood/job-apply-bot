@@ -107,6 +107,7 @@ def main():
                     "site": site,
                     "score": score(title, desc),
                     "desc_preview": desc[:120].replace("\n", " ") if desc else "",
+                    "description": desc,
                 })
 
         except Exception as e:

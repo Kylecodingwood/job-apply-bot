@@ -3,6 +3,7 @@ profile.json
 
 # Job search results (machine-generated)
 jobs.json
+evaluated_jobs.json
 
 # Python
 .venv/
