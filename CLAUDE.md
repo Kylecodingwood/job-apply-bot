@@ -98,3 +98,13 @@ Do NOT click Submit yourself.
 If any required field cannot be answered from profile.json, ask the user. After they answer:
 1. Fill the field
 2. Update profile.json with the new information so it's remembered next time
+
+## Recording Applications
+
+After successfully filling and reaching the Review page for any application:
+1. Read `applied_companies.json` (create if missing)
+2. Append an entry: { "company", "role", "location", "url", "date_applied", "status": "submitted" }
+3. Write the file back
+4. Tell the user: "已记录到 applied_companies.json ✓"
+
+Before filling any URL, check `applied_companies.json` — if the company+role already exists, warn the user before proceeding.

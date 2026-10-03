@@ -1,0 +1,10 @@
+[
+  {
+    "company": "Example Corp",
+    "role": "Software Engineer Intern",
+    "location": "Dublin, Ireland",
+    "url": "https://example.com/apply/123",
+    "date_applied": "YYYY-MM-DD",
+    "status": "submitted"
+  }
+]

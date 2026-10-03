@@ -99,6 +99,30 @@ If a form asks something not in your profile, Claude will ask you. After you ans
 
 ---
 
+## Tracking Applications
+
+Claude automatically records every completed application in `applied_companies.json`:
+
+```json
+[
+  {
+    "company": "HPE",
+    "role": "Software Engineer Intern",
+    "location": "Galway, Ireland",
+    "url": "https://...",
+    "date_applied": "2026-10-03",
+    "status": "submitted"
+  }
+]
+```
+
+- `applied_companies.json` is in `.gitignore` — stays on your machine only
+- A blank template (`applied_companies.template.json`) is committed to the repo
+- After filling a form, Claude records the application automatically unless you say "don't record this"
+- If you give Claude a URL it has already applied to, it will warn you
+
+---
+
 ## Privacy
 
 - `profile.json` is gitignored — stays on your machine only

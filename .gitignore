@@ -1,6 +1,9 @@
 # User's personal profile — never commit this
 profile.json
 
+# Applied companies log — personal, stays local
+applied_companies.json
+
 # Job search results (machine-generated)
 jobs.json
 evaluated_jobs.json

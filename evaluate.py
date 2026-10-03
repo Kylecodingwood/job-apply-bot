@@ -31,6 +31,25 @@ FIT_NEGATIVE = {
     "minimum 3 years": -1, "3+ years": -1,
 }
 
+# Job titles that are clearly off-topic for a software/backend engineer
+OFF_TOPIC_TITLE_KEYWORDS = [
+    "civil engineer", "geotechnical", "structural engineer", "electrical engineer",
+    "mechanical engineer", "quantity surveyor", "site engineer", "field engineer",
+    "finance graduate", "finance data", "financial analyst", "accounting", "auditor",
+    "tax", "actuar",
+    "hotel", "hospitality", "tourism",
+    "legal", "solicitor", "barrister", "paralegal",
+    "nurse", "nursing", "clinical", "critical care", "pharmacy", "pharmacist",
+    "medical", "healthcare", "physiotherap", "occupational therap", "speech therap",
+    "ergonomic",
+    "marketing", "sales graduate", "business development representative",
+    "hr ", "human resources", "organisational development", "recruitment",
+    "procurement", "supply chain",
+    "rail ", "transport planner", "urban planner",
+    "chemistry", "biology", "biochem", "lab technician",
+    "maintenance graduate", "operations engineer intern (field)",
+]
+
 # ── Eligibility patterns ───────────────────────────────────────────────────────
 
 UK_LOCATIONS = [
@@ -69,6 +88,11 @@ START_CONTEXT_WORDS = [
 
 
 # ── Helper functions ───────────────────────────────────────────────────────────
+
+def is_off_topic(title: str) -> bool:
+    t = title.lower()
+    return any(kw in t for kw in OFF_TOPIC_TITLE_KEYWORDS)
+
 
 def is_uk(location: str, description: str) -> bool:
     loc = location.lower()
@@ -151,22 +175,28 @@ def evaluate(job: dict) -> dict:
 
     out = {**job, "eligible": True, "skip_reason": "", "role_type": "UNKNOWN", "fit_score": 0}
 
-    # 1. UK location
+    # 1. Off-topic field
+    if is_off_topic(title):
+        out["eligible"]    = False
+        out["skip_reason"] = "Off-topic field (not software/tech)"
+        return out
+
+    # 2. UK location
     if is_uk(location, desc):
         out["eligible"]    = False
         out["skip_reason"] = "UK location (Stamp 1G not valid)"
         return out
 
-    # 2. Role type
+    # 3. Role type
     out["role_type"] = detect_role_type(title, desc)
 
-    # 3. Sponsorship restriction
+    # 4. Sponsorship restriction
     if has_no_sponsorship(desc):
         out["eligible"]    = False
         out["skip_reason"] = "No sponsorship / must already have right to work"
         return out
 
-    # 4. Graduate start date check
+    # 5. Graduate start date check
     if out["role_type"] == "GRAD":
         too_early, reason = grad_start_too_early(desc)
         if too_early:
@@ -174,7 +204,7 @@ def evaluate(job: dict) -> dict:
             out["skip_reason"] = reason
             return out
 
-    # 5. Fit score
+    # 6. Fit score
     out["fit_score"] = fit_score(title, desc)
 
     return out
