@@ -16,7 +16,7 @@
 7. [做一份你自己的公司清单（可选）](#7-做一份你自己的公司清单可选)
 8. [邮箱验证码自动读取（可选）](#8-邮箱验证码自动读取可选)
 9. [日常使用流程](#9-日常使用流程)
-10. [常见问题 / 踩坑记录](#10-常见问题--踩坑记录)
+10. [实战踩坑经验 & 进阶技巧](#10-实战踩坑经验--进阶技巧)
 
 ---
 
@@ -593,53 +593,309 @@ Claude：（用 subagent 并行填写多个表单，每个在新标签页）
 
 ---
 
-## 10. 常见问题 / 踩坑记录
+## 10. 实战踩坑经验 & 进阶技巧
 
-### Q: 运行 discover.py 报错 "No module named 'jobspy'"
+> 以下是投递 50+ 个职位后积累的血泪教训。每一条背后都是真实的翻车经历。
+
+---
+
+### 10.1 多标签页填写：必须用 Subagent
+
+**问题：** Claude Code 有上下文窗口限制。如果你说「一起投 5 个职位」，Claude 在主线程依次填写，到第 2-3 个表单时上下文就爆了——之前填的内容被压缩遗忘，后面的表单开始出错或丢字段。
+
+**解决方案：** 在 `CLAUDE.md` 中写明批量投递时使用 Agent tool（subagent）。每个 subagent 独立处理一个标签页，有自己的上下文窗口，互不干扰。
+
+```
+# 你这样说：
+全部投递 1 3 5 7
+
+# Claude 应该这样做：
+- 为每个职位启动一个 subagent
+- 每个 subagent 在新标签页独立填表
+- 主线程只负责协调和汇报结果
+```
+
+**如果你发现 Claude 在主线程逐个填（没用 subagent），直接告诉它：** 「用 subagent，每个 tab 开一个 agent 去填」。
+
+---
+
+### 10.2 CV 上传的正确姿势
+
+**问题：** Playwright 的 `browser_file_upload` 有时无法触发文件选择器（特别是 Workday 和 Oracle 的隐藏 input）。
+
+**正确做法（写进 CLAUDE.md）：**
+
+1. **先复制 CV 到项目目录**（Playwright 沙箱可能访问不到桌面路径）：
+   ```bash
+   cp "/Users/你/Desktop/你的简历.pdf" "/Users/你/job-apply-bot/你的简历.pdf"
+   ```
+
+2. **优先用 `browser_file_upload`**——这是标准方式。
+
+3. **如果 upload 按钮点击后没弹出文件选择器**，用 fallback：
+   ```javascript
+   // Claude 会用 browser_run_code_unsafe 执行这个
+   await page.locator('input[type="file"]').first().setInputFiles('/Users/你/job-apply-bot/你的简历.pdf')
+   ```
+
+4. **如果页面有多个 file input**（比如 CV + Cover Letter 分开上传），需要指定具体的 locator，不能用 `.first()`。
+
+---
+
+### 10.3 Workday 表单的特殊处理
+
+Workday 是最常见的申请系统，也是坑最多的。
+
+#### 学校下拉框搜不到
+
+Workday 的学校列表不是标准的 `<select>`，而是 ReactVirtualized 虚拟滚动列表。你的大学可能搜不到。
+
+**策略（写进 CLAUDE.md 或 MEMORY.md）：**
+- 先搜大学全名 → 搜不到就搜缩写 → 还搜不到选 **"Other - School Not Found in List"**
+- 选 "Other" 后通常会出现一个文本框让你手动输入校名
+
+#### 虚拟滚动下拉框操作
+
+Workday 的下拉选项用了 ReactVirtualized，普通的 click 可能点不到不在视口内的选项。
+
+```javascript
+// 1. 先滚动虚拟列表到目标位置
+Array.from(document.querySelectorAll('div'))
+  .find(el => el.className?.includes('ReactVirtualized__List'))
+  .scrollTop = 500  // 调整数字直到目标出现
+
+// 2. 然后点击 radio input（不是选项文字）
+target.querySelector('input[type="radio"]')?.click()
+```
+
+#### 多步骤表单的「最后一步陷阱」
+
+Workday 的申请通常是 5-6 步：My Information → My Experience → Application Questions → Voluntary Disclosures → Review。
+
+**危险点：** Review 页面的 "Submit" 按钮会直接提交申请。Claude 绝不应该点这个按钮。但有些表单最后一步的 "Save & Continue" 其实就是提交。
+
+**防御策略：** 在 CLAUDE.md 里写明——「如果当前步骤看起来是最后一步（下一步是 Review 或 Submit），先告诉我，等我确认后再继续。」
+
+---
+
+### 10.4 Oracle HCM (Taleo/IRC) 表单的特殊处理
+
+Oracle 系统（DP World、Oracle 自家等用）也很常见。
+
+#### 邮箱验证流程
+Oracle HCM 通常需要邮箱验证才能开始申请。Claude 应该：
+1. 填入邮箱 → 点击发送验证码
+2. 自动运行 `uv run python email_code.py --wait --sender oracle`
+3. 读到验证码后自动填入
+
+#### Resume Import 会覆盖已填字段
+Oracle 的 "Import Resume" 功能会解析你的 CV 并预填某些字段——但解析结果经常是错的（比如把 LinkedIn URL 填成 `https://LinkedIn`，把地址弄丢）。
+
+**最佳实践：** 先上传 CV，再逐一检查和覆盖被错误填入的字段。
+
+#### Preferred Location 等 Combobox
+Oracle 的 location 选择器不是标准 `<select>`，用 `fill_form` 会报错。正确做法是用 `browser_type` 输入关键词（如 "Dublin"），等下拉选项出现后用 `browser_click` 点击。
+
+---
+
+### 10.5 Cover Letter 自动生成
+
+有些申请需要 Cover Letter。让 Claude 自动生成 Word 文档：
+
+**写进 CLAUDE.md 的规则：**
+```
+当表单要求上传 Cover Letter 时：
+1. 用 python-docx 生成一份 .docx 文件
+2. 保存到项目目录：/Users/你/job-apply-bot/CoverLetter_公司名_职位.docx
+3. 上传到表单
+```
+
+Claude 会这样执行：
+```python
+python3 -c "
+from docx import Document
+doc = Document()
+doc.add_paragraph('Dear Hiring Manager,')
+doc.add_paragraph('正文...')
+doc.add_paragraph('Yours sincerely,')
+doc.add_paragraph('你的名字')
+doc.save('/Users/你/job-apply-bot/CoverLetter_Accenture_GradProgramme.docx')
+"
+```
+
+需要先安装：`uv add python-docx`
+
+---
+
+### 10.6 上下文管理——Claude 最大的瓶颈
+
+Claude Code 的上下文窗口是有限的。每次 `browser_snapshot` 会消耗大量 token。一个复杂的 Workday 6 步表单很容易用完整个窗口。
+
+**实用策略：**
+
+| 场景 | 做法 |
+|------|------|
+| 填单个简单表单 | 主线程直接填，不需要 subagent |
+| 填单个复杂表单（Workday 6 步） | 主线程填，但 Claude 可能在第 4-5 步开始「忘记」之前的信息。如果出现重复填写或遗漏，提醒 Claude 看 profile.json |
+| 批量填 2+ 个表单 | **必须用 subagent**，每个表单一个 agent |
+| Claude 明显开始「糊涂」了 | 说「读一下 profile.json 刷新记忆」，或者开一个新对话 |
+
+**写进 CLAUDE.md：**
+```
+当你感觉上下文快满了（比如 snapshot 返回的内容开始被截断），主动告诉用户，
+建议开新对话继续剩余的表单。
+```
+
+---
+
+### 10.7 MEMORY.md——Claude 的跨对话记忆
+
+Claude Code 有一个 auto-memory 目录（`~/.claude/projects/<project>/memory/`），里面的 `MEMORY.md` 每次对话都会自动加载前 200 行。
+
+**这意味着什么：**
+- 你在 MEMORY.md 里写的踩坑经验，Claude 下次对话时还能看到
+- 如果你发现某个申请系统有特殊操作（比如 Workday 学校搜索策略），告诉 Claude「记住这个」，它会写入 MEMORY.md
+- 你也可以直接编辑这个文件
+
+**推荐写入 MEMORY.md 的内容：**
+- 特定申请系统的操作技巧（Workday、Oracle、Greenhouse、Lever 等）
+- 你的学校在各系统下拉框中的准确名称
+- 每次填表后发现的新问题和解决方法
+- 投递统计数据（多少个投了、多少个回复了）
+
+---
+
+### 10.8 LinkedIn 浏览器补充抓取
+
+JobSpy 通过 API 抓取 LinkedIn，经常被反爬限制，漏掉大量职位。项目内置了一个**双通道策略**：
+
+1. **discover.py（JobSpy）** — 批量抓取，覆盖 Indeed + LinkedIn，速度快但可能漏
+2. **Playwright 浏览器直接刷 LinkedIn** — 用真实浏览器打开 LinkedIn Jobs 页面，像你手动浏览一样读取职位列表
+
+**工作原理：**
+- discover.py 跑完后，Claude 会自动打开 LinkedIn Jobs 搜索页
+- 按你配置的关键词搜索，筛选「最近 24 小时」+「Entry level / Internship」
+- 滚动 1-2 页，提取每条职位的标题、公司、地点、链接
+- 跟 jobs.json 去重后追加新发现的职位
+- 重新跑 evaluate.py 更新评分
+
+**前提条件：**
+- 你需要在 Playwright 浏览器中**至少手动登录一次 LinkedIn**（Claude 打开 LinkedIn 后你登录，session 会保留）
+- 之后每次抓取都会复用这个 session，不需要重新登录
+
+**手动触发：**
+```
+你：刷LinkedIn
+你：scrape LinkedIn
+你：补充抓取
+```
+
+**自定义搜索词：** 在 `CLAUDE.md` 的 "LinkedIn Browser Scraping" 章节中修改搜索关键词和 URL 模板。
+
+---
+
+### 10.9 常见报错 & 修复
+
+#### Q: 运行 discover.py 报错 "No module named 'jobspy'"
 ```bash
 uv sync   # 重新安装依赖
 ```
 
-### Q: Claude 说 "Playwright MCP not found"
+#### Q: Claude 说 "Playwright MCP not found"
 ```bash
 claude mcp add playwright -- npx @playwright/mcp@latest
 # 然后重启 Claude Code
 ```
 
-### Q: 浏览器打不开 / 超时
+#### Q: 浏览器打不开 / 超时
 确保 Node.js 已安装且版本 >= 18：
 ```bash
 node --version
 npx @playwright/mcp@latest   # 首次运行会自动安装浏览器
 ```
 
-### Q: CV 上传失败
+#### Q: CV 上传失败
 确保 `cv_path` 是**绝对路径**（以 `/` 开头），文件确实存在：
 ```bash
 ls -la "/Users/你的用户名/Desktop/你的简历.pdf"
 ```
 
-### Q: 搜到的职位太少 / 太多不相关
+#### Q: 搜到的职位太少 / 太多不相关
 - 太少 → 增大 `HOURS`（比如 720 = 30天），增大 `RESULTS`，增加 `SEARCHES` 关键词
 - 太多不相关 → 在 `OFF_TOPIC_TITLE_KEYWORDS` 中加入你不想看到的职位关键词
 - 评分不准 → 调整 `FIT_POSITIVE` 和 `FIT_NEGATIVE` 的关键词和权重
 
-### Q: Claude 填错了某个字段怎么办
+#### Q: Claude 填错了某个字段怎么办
 表单还没提交之前，你可以：
 1. 直接在浏览器里手动修改
 2. 告诉 Claude 哪里错了，它会帮你改
 
-### Q: 我不是在爱尔兰，怎么改
+#### Q: 我不是在爱尔兰，怎么改
 1. `profile.json` → 改 `personal.country`、`work_permit`
 2. `discover.py` → 改所有 `location` 字段，以及 `country_indeed` 参数
 3. `evaluate.py` → 修改/删除 `is_uk` 函数和 `UK_LOCATIONS` 列表
 4. `CLAUDE.md` → 修改 "Flags to Raise" 中的地区规则
 
-### Q: profile.json 里的密码安全吗
+#### Q: profile.json 里的密码安全吗
 `profile.json` 在 `.gitignore` 中，不会被 Git 追踪。但请注意：
 - 不要手动把它上传到任何地方
 - 如果 fork 了这个项目，确保 `.gitignore` 包含 `profile.json`
 - Gmail App Password 可以随时在 Google Account 中撤销
+
+---
+
+### 10.10 推荐的 Claude Code 设置
+
+在 Claude Code 里输入以下命令获得最佳体验：
+
+```
+/model opus              # 用最强模型——填表准确率明显更高
+/permissions             # 选 bypassPermissions——免得每个操作都要确认
+```
+
+也可以在 `~/.claude/settings.json` 中直接配置：
+```json
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  },
+  "model": "opus",
+  "skipDangerousModePermissionPrompt": true
+}
+```
+
+---
+
+### 10.11 投递效率最大化——工作流建议
+
+根据 50+ 次投递的经验，最高效的工作流是：
+
+1. **每天/每周跑一次 discover + evaluate**
+   ```
+   你：搜索职位
+   ```
+
+2. **从评分最高的开始投**——高分意味着匹配度高，值得优先投
+
+3. **一次选 3-5 个批量投递**
+   ```
+   你：全部投递 1 2 3 4 5
+   ```
+
+4. **填完后逐一检查再 Submit**——Claude 填的 95% 是对的，但偶尔会有小错误（日期格式、电话号码多了国家码等）
+
+5. **常见的 Claude 小错误（你检查时注意）：**
+   - 电话号码：可能把 country code 和号码连在一起（如 `+353870015190` 应该分开填）
+   - 日期格式：有些系统要 DD/MM/YYYY，有些要 MM/DD/YYYY，Claude 偶尔会搞混
+   - 下拉框：如果选项列表很长，Claude 可能选了一个相近但不完全正确的选项
+   - 自动导入的字段：Resume Import 后某些字段可能被覆盖成错误值
+
+6. **定期更新 company_list.md**——打勾已投的公司，添加新发现的公司
+
+7. **跟踪回复率**——如果投了 30+ 个还没有回复，可能需要：
+   - 改进 CV（让有经验的人看看）
+   - 扩大搜索范围（更多关键词、更多地区）
+   - 针对性写 Cover Letter（而不是通用的）
 
 ---
 

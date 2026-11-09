@@ -11,12 +11,13 @@ When a new conversation begins:
 ## Full Pipeline (Search → Evaluate → Apply)
 
 If the user says "搜索职位" / "search jobs" / "run the pipeline":
-1. Run `uv run python discover.py` — scrapes Indeed + LinkedIn, saves jobs.json
-2. Run `uv run python evaluate.py` — filters ineligible, scores eligible, saves evaluated_jobs.json
-3. Show the ranked table from evaluate.py output
-4. discover.py automatically prints unapplied companies from company_list.md — show this to the user
-5. Wait for user to pick a number
-6. Read that job's URL from evaluated_jobs.json and go fill the form
+1. Run `uv run python discover.py` — scrapes Indeed + LinkedIn via JobSpy, saves jobs.json
+2. **LinkedIn browser scrape** — open LinkedIn Jobs in Playwright, scrape today's new listings for the same keywords, append new results to jobs.json (see "LinkedIn Browser Scraping" section below)
+3. Run `uv run python evaluate.py` — filters ineligible, scores eligible, saves evaluated_jobs.json
+4. Show the ranked table from evaluate.py output
+5. discover.py automatically prints unapplied companies from company_list.md — show this to the user
+6. Wait for user to pick a number
+7. Read that job's URL from evaluated_jobs.json and go fill the form
 
 If the user says "搜大厂" / "搜公司清单" / "check tier list":
 1. Run `uv run python discover.py --tier` — searches all unapplied companies in company_list.md
@@ -25,6 +26,32 @@ If the user says "搜大厂" / "搜公司清单" / "check tier list":
 
 If the user says "搜 S+ tier" / "搜 [tier名]":
 - Run `uv run python discover.py --tier S+` (replace S+ with the specified tier name)
+
+## LinkedIn Browser Scraping (补充抓取)
+
+JobSpy 经常被反爬限制，漏掉很多职位。在 discover.py 跑完后，**额外用 Playwright 浏览器抓取 LinkedIn 当天的新职位**作为补充：
+
+1. 用 `browser_navigate` 打开 LinkedIn Jobs 搜索页（搜索关键词 + location Ireland / Dublin）
+2. 滚动加载结果列表，逐条读取：职位名、公司名、地点、发布时间、申请链接
+3. 跟 jobs.json 中的已有结果去重（按 URL 或 公司+职位名 判断）
+4. 把新发现的职位追加到 jobs.json
+5. 重新跑 `uv run python evaluate.py` 更新评分
+
+**触发方式：**
+- discover.py 跑完后自动执行（作为 pipeline 的一部分）
+- 或者用户说 "刷LinkedIn" / "scrape LinkedIn" / "补充抓取" 时单独执行
+
+**注意事项：**
+- LinkedIn 需要登录才能看到完整结果——如果 Playwright 浏览器没有 LinkedIn session，先让用户手动登录一次
+- 只抓第 1-2 页结果（约 25-50 条），不要无限滚动
+- 每条职位至少提取：title, company, location, url, date_posted
+- 如果 LinkedIn 弹出验证或限制页面，停止抓取并告知用户
+
+**推荐搜索 URL 模板：**
+```
+https://www.linkedin.com/jobs/search/?keywords=<关键词>&location=Ireland&f_TPR=r86400&f_E=1%2C2
+```
+参数说明：`f_TPR=r86400` = 最近 24 小时，`f_E=1%2C2` = Entry level + Internship
 
 ## Step-by-Step Process for Each URL
 
