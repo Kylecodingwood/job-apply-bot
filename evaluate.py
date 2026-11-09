@@ -11,24 +11,31 @@ JOBS_PATH = Path(__file__).parent / "jobs.json"
 OUT_PATH  = Path(__file__).parent / "evaluated_jobs.json"
 
 # Graduation constraint — grad programmes must start ON OR AFTER this
-GRAD_MIN_YEAR  = 2028
-GRAD_MIN_MONTH = 1   # January
+# Relaxed: accept Sept 2027+ (most grad schemes start Sept; user graduates Jan 2028
+# but can negotiate or defer start within the programme)
+GRAD_MIN_YEAR  = 2027
+GRAD_MIN_MONTH = 9   # September
 
 # ── Fit scoring ────────────────────────────────────────────────────────────────
 
 FIT_POSITIVE = {
-    "java": 2, "spring boot": 2,
-    "spring": 1, "python": 1, "backend": 1,
+    "java": 2, "spring boot": 2, "spring": 1,
+    "python": 1, "backend": 1, "full stack": 1, "fullstack": 1,
     "rest api": 1, "rest": 1, "api": 1,
     "postgresql": 1, "mysql": 1, "docker": 1,
+    ".net": 1, "c#": 1, "react": 1, "angular": 1, "typescript": 1,
+    "cloud": 1, "devops": 1, "aws": 1, "azure": 1,
     "software engineer": 1, "software developer": 1,
-    "dublin": 1, "remote": 1,
+    "junior": 1, "graduate": 1, "intern": 1, "entry level": 1,
+    "it graduate": 1, "technology graduate": 1,
+    "dublin": 2, "cork": 1, "remote": 1, "hybrid": 1, "ireland": 1,
 }
 
 FIT_NEGATIVE = {
     "senior": -2, "lead developer": -2, "engineering manager": -2,
     "5 years": -2, "5+ years": -2, "7 years": -2, "10 years": -2,
     "minimum 3 years": -1, "3+ years": -1,
+    # All Ireland locations accepted — no location penalties
 }
 
 # Job titles that are clearly off-topic for a software/backend engineer
@@ -225,7 +232,7 @@ def main():
     skipped  = [j for j in evaluated if not j["eligible"]]
     eligible = [j for j in evaluated if j["eligible"]]
     eligible.sort(key=lambda x: x["fit_score"], reverse=True)
-    display  = [j for j in eligible if j["fit_score"] >= 1]
+    display  = [j for j in eligible if j["fit_score"] >= 0]
 
     # Print skipped summary
     print(f"❌  Skipped {len(skipped)} ineligible:")
@@ -235,14 +242,15 @@ def main():
         print(f"   ... and {len(skipped) - 8} more")
 
     # Print eligible table
-    print(f"\n✅  {len(display)} jobs ready to apply (fit ≥ 2):\n")
-    print(f"{'#':<4} {'Fit':<5} {'Type':<7} {'Title':<45} {'Company':<25} {'Location'}")
-    print("─" * 115)
+    print(f"\n✅  {len(display)} jobs ready to apply:\n")
+    print(f"{'#':<4} {'Fit':<5} {'Type':<7} {'Title':<45} {'Company':<25} {'Location':<20} {'Published'}")
+    print("─" * 125)
     for i, job in enumerate(display, 1):
         t = job["title"][:43]   + ".." if len(job["title"])    > 45 else job["title"]
         c = job["company"][:23] + ".." if len(job["company"])  > 25 else job["company"]
         l = job["location"][:18]+ ".." if len(job["location"]) > 20 else job["location"]
-        print(f"{i:<4} {job['fit_score']:<5} {job['role_type']:<7} {t:<45} {c:<25} {l}")
+        d = job.get("date_posted", "") or ""
+        print(f"{i:<4} {job['fit_score']:<5} {job['role_type']:<7} {t:<45} {c:<25} {l:<20} {d}")
 
     # Save full evaluation
     OUT_PATH.write_text(json.dumps(evaluated, indent=2, ensure_ascii=False))
